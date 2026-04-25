@@ -1,4 +1,4 @@
-name: RDP with Tailscale (Custom Password + NLA Disabled)
+name: RDP with Tailscale (Max Clean)
 
 on:
   workflow_dispatch:
@@ -9,6 +9,28 @@ jobs:
     timeout-minutes: 3600
 
     steps:
+      - name: Max Clean Disk
+        run: |
+          Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Windows\SoftwareDistribution\Download" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Windows\Temp\*" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "$env:TEMP\*" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Program Files (x86)\Microsoft Visual Studio" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Program Files\Microsoft Visual Studio" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Program Files\dotnet" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\hostedtoolcache" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\ProgramData\chocolatey" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Android" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Program Files\Android" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Program Files (x86)\Android" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Program Files\Git" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Program Files\nodejs" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Program Files\Python*" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Program Files (x86)\Microsoft SDKs" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Program Files\Microsoft SDKs" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Program Files\Windows Kits" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Program Files (x86)\Windows Kits" -ErrorAction SilentlyContinue
+
       - name: Enable RDP & Disable NLA
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
@@ -54,4 +76,3 @@ jobs:
           Write-Host "Username: RDP"
           Write-Host "Password: Abc!2024!*1*1*1*"
           while ($true) { Start-Sleep -Seconds 300 }
- 
