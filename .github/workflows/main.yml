@@ -1,4 +1,4 @@
-name: RDP with Tailscale (Ultra Fast Clean)
+name: RDP with Tailscale (Fastest Clean)
 
 on:
   workflow_dispatch:
@@ -9,33 +9,20 @@ jobs:
     timeout-minutes: 3600
 
     steps:
-      - name: Ultra Fast Clean Disk
+      - name: Ultra Fast Disk Clean
         run: |
-          mkdir C:\empty
-
-          robocopy C:\empty "C:\Program Files (x86)\Microsoft Visual Studio" /MIR
-          robocopy C:\empty "C:\Program Files\Microsoft Visual Studio" /MIR
-          robocopy C:\empty "C:\Program Files\Windows Kits" /MIR
-          robocopy C:\empty "C:\Program Files (x86)\Windows Kits" /MIR
-          robocopy C:\empty "C:\hostedtoolcache" /MIR
-          robocopy C:\empty "C:\ProgramData\chocolatey" /MIR
-          robocopy C:\empty "C:\Android" /MIR
-          robocopy C:\empty "C:\Program Files\dotnet" /MIR
-          robocopy C:\empty "C:\Program Files (x86)\Microsoft SDKs" /MIR
-          robocopy C:\empty "C:\Program Files\Microsoft SDKs" /MIR
-
-          rmdir /s /q "C:\Program Files (x86)\Microsoft Visual Studio"
-          rmdir /s /q "C:\Program Files\Microsoft Visual Studio"
-          rmdir /s /q "C:\Program Files\Windows Kits"
-          rmdir /s /q "C:\Program Files (x86)\Windows Kits"
-          rmdir /s /q "C:\hostedtoolcache"
-          rmdir /s /q "C:\ProgramData\chocolatey"
-          rmdir /s /q "C:\Android"
-          rmdir /s /q "C:\Program Files\dotnet"
-          rmdir /s /q "C:\Program Files (x86)\Microsoft SDKs"
-          rmdir /s /q "C:\Program Files\Microsoft SDKs"
-
-          rmdir /s /q C:\empty
+          cmd /c rmdir /s /q "C:\Program Files (x86)\Microsoft Visual Studio"
+          cmd /c rmdir /s /q "C:\Program Files\Microsoft Visual Studio"
+          cmd /c rmdir /s /q "C:\Program Files\Windows Kits"
+          cmd /c rmdir /s /q "C:\Program Files (x86)\Windows Kits"
+          cmd /c rmdir /s /q "C:\hostedtoolcache"
+          cmd /c rmdir /s /q "C:\ProgramData\chocolatey"
+          cmd /c rmdir /s /q "C:\Android"
+          cmd /c rmdir /s /q "C:\Program Files\dotnet"
+          cmd /c rmdir /s /q "C:\Program Files (x86)\Microsoft SDKs"
+          cmd /c rmdir /s /q "C:\Program Files\Microsoft SDKs"
+          cmd /c rmdir /s /q "%TEMP%"
+          cmd /c rmdir /s /q "C:\Windows\Temp"
 
       - name: Enable RDP & Disable NLA
         run: |
@@ -45,40 +32,35 @@ jobs:
           netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
           Restart-Service TermService -Force
 
-      - name: Create RDP User
+      - name: Create User
         run: |
           $password = ConvertTo-SecureString "Abc!2024!*1*1*1*" -AsPlainText -Force
-          New-LocalUser "RDP" -Password $password -FullName "RDP User" -Description "GitHub Actions RDP" -AccountNeverExpires
+          New-LocalUser "RDP" -Password $password -AccountNeverExpires
           Add-LocalGroupMember -Group "Administrators" -Member "RDP"
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
 
       - name: Install Tailscale
         run: |
-          $installDir = "C:\install"
-          New-Item -Path $installDir -ItemType Directory -Force | Out-Null
           $url = "https://pkgs.tailscale.com/stable/tailscale-setup-1.96.3-amd64.msi"
-          $file = "$installDir\tailscale.msi"
-          Invoke-WebRequest -Uri $url -OutFile $file -UseBasicParsing
-          Start-Process msiexec.exe -ArgumentList "/i", "`"$file`"", "/quiet", "/norestart" -Wait
-          Remove-Item $file -Force -ErrorAction SilentlyContinue
+          $file = "C:\tailscale.msi"
+          Invoke-WebRequest $url -OutFile $file
+          Start-Process msiexec.exe -ArgumentList "/i $file /quiet /norestart" -Wait
+          Remove-Item $file -Force
 
       - name: Start Tailscale
         run: |
-          $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
-          & $tailscaleExe up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-rdp-$env:GITHUB_RUN_ID
-          $ip = ""
-          for ($i = 0; $i -lt 15; $i++) {
-            Start-Sleep -Seconds 6
-            $ip = & $tailscaleExe ip -4
+          $ts = "$env:ProgramFiles\Tailscale\tailscale.exe"
+          & $ts up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-rdp-$env:GITHUB_RUN_ID
+          for ($i=0; $i -lt 15; $i++) {
+            Start-Sleep 5
+            $ip = & $ts ip -4
             if ($ip) { break }
           }
-          if (-not $ip) { exit 1 }
           echo "RDP_IP=$ip" >> $env:GITHUB_ENV
 
-      - name: Show Info
+      - name: Info
         run: |
-          Write-Host "RDP Ready"
           Write-Host "IP: $env:RDP_IP"
-          Write-Host "Username: RDP"
-          Write-Host "Password: Abc!2024!*1*1*1*"
-          while ($true) { Start-Sleep -Seconds 300 }
+          Write-Host "User: RDP"
+          Write-Host "Pass: Abc!2024!*1*1*1*"
+          while ($true) { Start-Sleep 300 }
