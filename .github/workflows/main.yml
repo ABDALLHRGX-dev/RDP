@@ -1,4 +1,4 @@
-name: RDP with Tailscale (Max Clean)
+name: RDP with Tailscale (Ultra Fast Clean)
 
 on:
   workflow_dispatch:
@@ -9,27 +9,33 @@ jobs:
     timeout-minutes: 3600
 
     steps:
-      - name: Max Clean Disk
+      - name: Ultra Fast Clean Disk
         run: |
-          Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Windows\SoftwareDistribution\Download" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Windows\Temp\*" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "$env:TEMP\*" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Program Files (x86)\Microsoft Visual Studio" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Program Files\Microsoft Visual Studio" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Program Files\dotnet" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\hostedtoolcache" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\ProgramData\chocolatey" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Android" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Program Files\Android" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Program Files (x86)\Android" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Program Files\Git" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Program Files\nodejs" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Program Files\Python*" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Program Files (x86)\Microsoft SDKs" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Program Files\Microsoft SDKs" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Program Files\Windows Kits" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Program Files (x86)\Windows Kits" -ErrorAction SilentlyContinue
+          mkdir C:\empty
+
+          robocopy C:\empty "C:\Program Files (x86)\Microsoft Visual Studio" /MIR
+          robocopy C:\empty "C:\Program Files\Microsoft Visual Studio" /MIR
+          robocopy C:\empty "C:\Program Files\Windows Kits" /MIR
+          robocopy C:\empty "C:\Program Files (x86)\Windows Kits" /MIR
+          robocopy C:\empty "C:\hostedtoolcache" /MIR
+          robocopy C:\empty "C:\ProgramData\chocolatey" /MIR
+          robocopy C:\empty "C:\Android" /MIR
+          robocopy C:\empty "C:\Program Files\dotnet" /MIR
+          robocopy C:\empty "C:\Program Files (x86)\Microsoft SDKs" /MIR
+          robocopy C:\empty "C:\Program Files\Microsoft SDKs" /MIR
+
+          rmdir /s /q "C:\Program Files (x86)\Microsoft Visual Studio"
+          rmdir /s /q "C:\Program Files\Microsoft Visual Studio"
+          rmdir /s /q "C:\Program Files\Windows Kits"
+          rmdir /s /q "C:\Program Files (x86)\Windows Kits"
+          rmdir /s /q "C:\hostedtoolcache"
+          rmdir /s /q "C:\ProgramData\chocolatey"
+          rmdir /s /q "C:\Android"
+          rmdir /s /q "C:\Program Files\dotnet"
+          rmdir /s /q "C:\Program Files (x86)\Microsoft SDKs"
+          rmdir /s /q "C:\Program Files\Microsoft SDKs"
+
+          rmdir /s /q C:\empty
 
       - name: Enable RDP & Disable NLA
         run: |
@@ -39,7 +45,7 @@ jobs:
           netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
           Restart-Service TermService -Force
 
-      - name: Create RDP User With Password
+      - name: Create RDP User
         run: |
           $password = ConvertTo-SecureString "Abc!2024!*1*1*1*" -AsPlainText -Force
           New-LocalUser "RDP" -Password $password -FullName "RDP User" -Description "GitHub Actions RDP" -AccountNeverExpires
@@ -69,7 +75,7 @@ jobs:
           if (-not $ip) { exit 1 }
           echo "RDP_IP=$ip" >> $env:GITHUB_ENV
 
-      - name: Show Credentials
+      - name: Show Info
         run: |
           Write-Host "RDP Ready"
           Write-Host "IP: $env:RDP_IP"
