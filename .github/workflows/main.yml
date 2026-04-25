@@ -1,4 +1,4 @@
-name: RDP with Tailscale (Fastest Clean)
+name: RDP with Tailscale (Fast Clean Safe)
 
 on:
   workflow_dispatch:
@@ -9,36 +9,6 @@ jobs:
     timeout-minutes: 3600
 
     steps:
-      - name: Ultra Fast Disk Clean
-        run: |
-          cmd /c rmdir /s /q "C:\Program Files (x86)\Microsoft Visual Studio"
-          cmd /c rmdir /s /q "C:\Program Files\Microsoft Visual Studio"
-          cmd /c rmdir /s /q "C:\Program Files\Windows Kits"
-          cmd /c rmdir /s /q "C:\Program Files (x86)\Windows Kits"
-          cmd /c rmdir /s /q "C:\hostedtoolcache"
-          cmd /c rmdir /s /q "C:\ProgramData\chocolatey"
-          cmd /c rmdir /s /q "C:\Android"
-          cmd /c rmdir /s /q "C:\Program Files\dotnet"
-          cmd /c rmdir /s /q "C:\Program Files (x86)\Microsoft SDKs"
-          cmd /c rmdir /s /q "C:\Program Files\Microsoft SDKs"
-          cmd /c rmdir /s /q "%TEMP%"
-          cmd /c rmdir /s /q "C:\Windows\Temp"
-
-      - name: Enable RDP & Disable NLA
-        run: |
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-          Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa" -Name "LimitBlankPasswordUse" -Value 0 -Force
-          netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
-          Restart-Service TermService -Force
-
-      - name: Create User
-        run: |
-          $password = ConvertTo-SecureString "Abc!2024!*1*1*1*" -AsPlainText -Force
-          New-LocalUser "RDP" -Password $password -AccountNeverExpires
-          Add-LocalGroupMember -Group "Administrators" -Member "RDP"
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
-
       - name: Install Tailscale
         run: |
           $url = "https://pkgs.tailscale.com/stable/tailscale-setup-1.96.3-amd64.msi"
@@ -51,14 +21,41 @@ jobs:
         run: |
           $ts = "$env:ProgramFiles\Tailscale\tailscale.exe"
           & $ts up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-rdp-$env:GITHUB_RUN_ID
+
           for ($i=0; $i -lt 15; $i++) {
             Start-Sleep 5
             $ip = & $ts ip -4
             if ($ip) { break }
           }
+
           echo "RDP_IP=$ip" >> $env:GITHUB_ENV
 
-      - name: Info
+      - name: Safe Fast Clean (NO TAILSCALE TOUCH)
+        run: |
+          rmdir /s /q "$env:TEMP" 2>$null
+          rmdir /s /q "C:\Windows\Temp" 2>$null
+          rmdir /s /q "C:\ProgramData\chocolatey\lib" 2>$null
+          rmdir /s /q "C:\hostedtoolcache" 2>$null
+          rmdir /s /q "C:\Program Files\dotnet" 2>$null
+          rmdir /s /q "C:\Program Files (x86)\Microsoft SDKs" 2>$null
+          rmdir /s /q "C:\Program Files\Microsoft SDKs" 2>$null
+
+      - name: Enable RDP & Disable NLA
+        run: |
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+          Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa" -Name "LimitBlankPasswordUse" -Value 0 -Force
+          netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
+          Restart-Service TermService -Force
+
+      - name: Create RDP User
+        run: |
+          $password = ConvertTo-SecureString "Abc!2024!*1*1*1*" -AsPlainText -Force
+          New-LocalUser "RDP" -Password $password -AccountNeverExpires
+          Add-LocalGroupMember -Group "Administrators" -Member "RDP"
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
+
+      - name: Show Info
         run: |
           Write-Host "IP: $env:RDP_IP"
           Write-Host "User: RDP"
