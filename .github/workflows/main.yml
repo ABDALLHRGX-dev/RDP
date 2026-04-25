@@ -1,4 +1,4 @@
-name: RDP with Tailscale (Fast Clean Safe)
+name: RDP with Tailscale (Stable Clean)
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ jobs:
           $file = "C:\tailscale.msi"
           Invoke-WebRequest $url -OutFile $file
           Start-Process msiexec.exe -ArgumentList "/i $file /quiet /norestart" -Wait
-          Remove-Item $file -Force
+          Remove-Item $file -Force -ErrorAction SilentlyContinue
 
       - name: Start Tailscale
         run: |
@@ -30,15 +30,29 @@ jobs:
 
           echo "RDP_IP=$ip" >> $env:GITHUB_ENV
 
-      - name: Safe Fast Clean (NO TAILSCALE TOUCH)
+      - name: Safe Universal Clean (NO ERRORS)
+        shell: powershell
         run: |
-          rmdir /s /q "$env:TEMP" 2>$null
-          rmdir /s /q "C:\Windows\Temp" 2>$null
-          rmdir /s /q "C:\ProgramData\chocolatey\lib" 2>$null
-          rmdir /s /q "C:\hostedtoolcache" 2>$null
-          rmdir /s /q "C:\Program Files\dotnet" 2>$null
-          rmdir /s /q "C:\Program Files (x86)\Microsoft SDKs" 2>$null
-          rmdir /s /q "C:\Program Files\Microsoft SDKs" 2>$null
+          $paths = @(
+            $env:TEMP,
+            "C:\Windows\Temp",
+            "C:\ProgramData\chocolatey\lib",
+            "C:\hostedtoolcache",
+            "C:\Program Files\dotnet",
+            "C:\Program Files (x86)\Microsoft SDKs",
+            "C:\Program Files\Microsoft SDKs"
+          )
+
+          foreach ($p in $paths) {
+            if (Test-Path $p) {
+              try {
+                Remove-Item -Recurse -Force -Path $p -ErrorAction SilentlyContinue
+              } catch {}
+            }
+          }
+
+          [System.GC]::Collect()
+          [System.GC]::WaitForPendingFinalizers()
 
       - name: Enable RDP & Disable NLA
         run: |
