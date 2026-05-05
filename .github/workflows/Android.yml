@@ -9,12 +9,6 @@ jobs:
     timeout-minutes: 3600
 
     steps:
-      - name: KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
       - name: JDK
         uses: actions/setup-java@v4
         with:
@@ -37,7 +31,7 @@ jobs:
 
           emulator -avd avd30 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -writable-system &
 
-          sleep 150
+          sleep 180
 
           adb root
           adb remount
@@ -53,9 +47,9 @@ jobs:
           ./cloudflared tunnel --url tcp://localhost:5900 > vnc.log 2>&1 &
 
           echo "Android 11 ARM64 Rooted is ready"
-          sleep 15
+          sleep 20
           echo "ADB Tunnel:"
-          cat adb.log | grep -o 'https://[^ ]*trycloudflare.com' || echo "Waiting..."
+          cat adb.log | grep -o 'https://[^ ]*trycloudflare.com' || echo "Waiting for tunnel..."
           echo "VNC Tunnel:"
-          cat vnc.log | grep -o 'https://[^ ]*trycloudflare.com' || echo "Waiting..."
+          cat vnc.log | grep -o 'https://[^ ]*trycloudflare.com' || echo "Waiting for tunnel..."
           tail -f /dev/null
