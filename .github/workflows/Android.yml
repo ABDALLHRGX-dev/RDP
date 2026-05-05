@@ -1,0 +1,61 @@
+name: Android 11 ARM64 Rooted
+
+on:
+  workflow_dispatch:
+
+jobs:
+  android:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 3600
+
+    steps:
+      - name: KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: |
+            platform-tools
+            emulator
+            system-images;android-30;google_apis;arm64-v8a
+
+      - name: Create AVD
+        run: |
+          echo "no" | avdmanager create avd -n avd30 -k "system-images;android-30;google_apis;arm64-v8a" --device "pixel_4" --force
+
+          wget https://github.com/topjohnwu/Magisk/releases/download/v28.0/Magisk-v28.0.apk -O magisk.apk
+
+          emulator -avd avd30 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -writable-system &
+
+          sleep 150
+
+          adb root
+          adb remount
+          adb push magisk.apk /sdcard/
+          adb shell pm install -r /sdcard/magisk.apk
+
+      - name: Cloudflare Quick Tunnel
+        run: |
+          wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64 -O cloudflared
+          chmod +x cloudflared
+
+          ./cloudflared tunnel --url tcp://localhost:5555 > adb.log 2>&1 &
+          ./cloudflared tunnel --url tcp://localhost:5900 > vnc.log 2>&1 &
+
+          echo "Android 11 ARM64 Rooted is ready"
+          sleep 15
+          echo "ADB Tunnel:"
+          cat adb.log | grep -o 'https://[^ ]*trycloudflare.com' || echo "Waiting..."
+          echo "VNC Tunnel:"
+          cat vnc.log | grep -o 'https://[^ ]*trycloudflare.com' || echo "Waiting..."
+          tail -f /dev/null
