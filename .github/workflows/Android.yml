@@ -15,13 +15,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: |
-            platform-tools
-            emulator
-            system-images;android-30;google_apis;arm64-v8a
+      - name: SDK Setup
+        run: |
+          sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager platform-tools emulator "system-images;android-30;google_apis;arm64-v8a"
 
       - name: Create AVD
         run: |
@@ -31,7 +28,7 @@ jobs:
 
           emulator -avd avd30 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -writable-system &
 
-          sleep 180
+          sleep 240
 
           adb root
           adb remount
@@ -49,7 +46,7 @@ jobs:
           echo "Android 11 ARM64 Rooted is ready"
           sleep 20
           echo "ADB Tunnel:"
-          cat adb.log | grep -o 'https://[^ ]*trycloudflare.com' || echo "Waiting for tunnel..."
+          cat adb.log | grep -o 'https://[^ ]*trycloudflare.com' || echo "Waiting..."
           echo "VNC Tunnel:"
-          cat vnc.log | grep -o 'https://[^ ]*trycloudflare.com' || echo "Waiting for tunnel..."
+          cat vnc.log | grep -o 'https://[^ ]*trycloudflare.com' || echo "Waiting..."
           tail -f /dev/null
