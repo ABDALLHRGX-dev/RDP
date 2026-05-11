@@ -15,11 +15,11 @@ jobs:
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
           $url = "https://pkgs.tailscale.com/stable/tailscale-setup-1.96.3-amd64.msi"
-          $file = "C:\tailscale.msi"
+          $file = "$env:TEMP\tailscale.msi"
 
-          Invoke-WebRequest $url -OutFile $file -UseBasicParsing
-          Start-Process msiexec.exe -ArgumentList "/i $file /quiet /norestart" -Wait
-          Remove-Item $file -Force -ErrorAction SilentlyContinue
+          curl.exe -L $url -o $file
+
+          Start-Process msiexec.exe -ArgumentList "/i `"$file`" /quiet /norestart" -Wait
 
       - name: Start Tailscale
         shell: powershell
@@ -28,7 +28,7 @@ jobs:
 
           & $ts up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-rdp-$env:GITHUB_RUN_ID
 
-          for ($i = 0; $i -lt 15; $i++) {
+          for ($i = 0; $i -lt 20; $i++) {
             Start-Sleep 5
             $ip = & $ts ip -4
             if ($ip) { break }
@@ -39,53 +39,20 @@ jobs:
       - name: Download Playit
         shell: powershell
         run: |
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          $url = "https://github.com/playit-cloud/playit-agent/releases/download/v0.15.26/playit-windows-amd64.exe"
 
-          $url = "https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-windows-amd64.exe"
-          $output = "playit.exe"
+          curl.exe -L --retry 5 --retry-delay 5 $url -o playit.exe
 
-          for ($i = 0; $i -lt 5; $i++) {
-            try {
-              Invoke-WebRequest -Uri $url -OutFile $output -UseBasicParsing
-              break
-            } catch {
-              Start-Sleep 5
-            }
-          }
-
-          if (!(Test-Path $output)) {
-            throw "Failed to download playit.exe"
+          if (!(Test-Path ".\playit.exe")) {
+            throw "playit.exe missing"
           }
 
       - name: Start Playit
         shell: powershell
         run: |
           Start-Process -WindowStyle Hidden -FilePath ".\playit.exe"
+
           Start-Sleep 20
-
-      - name: Safe Universal Clean
-        shell: powershell
-        run: |
-          $paths = @(
-            $env:TEMP,
-            "C:\Windows\Temp",
-            "C:\ProgramData\chocolatey\lib",
-            "C:\hostedtoolcache",
-            "C:\Program Files\dotnet",
-            "C:\Program Files (x86)\Microsoft SDKs",
-            "C:\Program Files\Microsoft SDKs"
-          )
-
-          foreach ($p in $paths) {
-            if (Test-Path $p) {
-              try {
-                Remove-Item -Recurse -Force -Path $p -ErrorAction SilentlyContinue
-              } catch {}
-            }
-          }
-
-          [System.GC]::Collect()
-          [System.GC]::WaitForPendingFinalizers()
 
       - name: Enable RDP & Open Ports
         shell: powershell
@@ -104,7 +71,7 @@ jobs:
 
           Restart-Service TermService -Force
 
-      - name: Create RDP User
+      - name: Create User
         shell: powershell
         run: |
           $password = ConvertTo-SecureString "Abc!2024!*1*1*1*" -AsPlainText -Force
@@ -121,8 +88,8 @@ jobs:
           Write-Host "IP: $env:RDP_IP"
           Write-Host "User: RDP"
           Write-Host "Pass: Abc!2024!*1*1*1*"
-          Write-Host "Playit Started"
-          
+          Write-Host "Playit Running"
+
           while ($true) {
             Start-Sleep 300
           }
