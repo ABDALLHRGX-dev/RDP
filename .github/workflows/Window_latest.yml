@@ -10,19 +10,25 @@ jobs:
 
     steps:
       - name: Install Tailscale
+        shell: powershell
         run: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
           $url = "https://pkgs.tailscale.com/stable/tailscale-setup-1.96.3-amd64.msi"
           $file = "C:\tailscale.msi"
-          Invoke-WebRequest $url -OutFile $file
+
+          Invoke-WebRequest $url -OutFile $file -UseBasicParsing
           Start-Process msiexec.exe -ArgumentList "/i $file /quiet /norestart" -Wait
           Remove-Item $file -Force -ErrorAction SilentlyContinue
 
       - name: Start Tailscale
+        shell: powershell
         run: |
           $ts = "$env:ProgramFiles\Tailscale\tailscale.exe"
+
           & $ts up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-rdp-$env:GITHUB_RUN_ID
 
-          for ($i=0; $i -lt 15; $i++) {
+          for ($i = 0; $i -lt 15; $i++) {
             Start-Sleep 5
             $ip = & $ts ip -4
             if ($ip) { break }
@@ -33,9 +39,25 @@ jobs:
       - name: Download Playit
         shell: powershell
         run: |
-          Invoke-WebRequest https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-windows-amd64.exe -OutFile playit.exe
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-      - name: Start Playit Tunnel
+          $url = "https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-windows-amd64.exe"
+          $output = "playit.exe"
+
+          for ($i = 0; $i -lt 5; $i++) {
+            try {
+              Invoke-WebRequest -Uri $url -OutFile $output -UseBasicParsing
+              break
+            } catch {
+              Start-Sleep 5
+            }
+          }
+
+          if (!(Test-Path $output)) {
+            throw "Failed to download playit.exe"
+          }
+
+      - name: Start Playit
         shell: powershell
         run: |
           Start-Process -WindowStyle Hidden -FilePath ".\playit.exe"
@@ -65,27 +87,42 @@ jobs:
           [System.GC]::Collect()
           [System.GC]::WaitForPendingFinalizers()
 
-      - name: Enable RDP & Open Port
+      - name: Enable RDP & Open Ports
+        shell: powershell
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+
           Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa" -Name "LimitBlankPasswordUse" -Value 0 -Force
+
           netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
+
           netsh advfirewall firewall add rule name="UDP7777" dir=in action=allow protocol=UDP localport=7777
+
           netsh advfirewall firewall add rule name="TCP7777" dir=in action=allow protocol=TCP localport=7777
+
           Restart-Service TermService -Force
 
       - name: Create RDP User
+        shell: powershell
         run: |
           $password = ConvertTo-SecureString "Abc!2024!*1*1*1*" -AsPlainText -Force
+
           New-LocalUser "RDP" -Password $password -AccountNeverExpires
+
           Add-LocalGroupMember -Group "Administrators" -Member "RDP"
+
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
 
       - name: Show Info
+        shell: powershell
         run: |
           Write-Host "IP: $env:RDP_IP"
           Write-Host "User: RDP"
           Write-Host "Pass: Abc!2024!*1*1*1*"
-          Write-Host "Playit Tunnel Started"
-          while ($true) { Start-Sleep 300 }
+          Write-Host "Playit Started"
+          
+          while ($true) {
+            Start-Sleep 300
+          }
