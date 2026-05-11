@@ -1,4 +1,4 @@
-name: RDP with Tailscale (Stable Clean)
+name: Windows latest
 
 on:
   workflow_dispatch:
@@ -30,7 +30,19 @@ jobs:
 
           echo "RDP_IP=$ip" >> $env:GITHUB_ENV
 
-      - name: Safe Universal Clean (NO ERRORS)
+      - name: Install Cloudflared
+        shell: powershell
+        run: |
+          Invoke-WebRequest https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe -OutFile cloudflared.exe
+
+      - name: Open Tunnel Port 7777
+        shell: powershell
+        run: |
+          Start-Process -WindowStyle Hidden -FilePath ".\cloudflared.exe" -ArgumentList "tunnel --url tcp://localhost:7777"
+          Start-Sleep 15
+          Get-Content "$env:USERPROFILE\.cloudflared\*.log" -ErrorAction SilentlyContinue
+
+      - name: Safe Universal Clean
         shell: powershell
         run: |
           $paths = @(
@@ -54,15 +66,16 @@ jobs:
           [System.GC]::Collect()
           [System.GC]::WaitForPendingFinalizers()
 
-      - name: Enable RDP & Disable NLA
+      - name: Enable RDP
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
           Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa" -Name "LimitBlankPasswordUse" -Value 0 -Force
           netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
+          netsh advfirewall firewall add rule name="7777" dir=in action=allow protocol=TCP localport=7777
           Restart-Service TermService -Force
 
-      - name: Create RDP User
+      - name: Create User
         run: |
           $password = ConvertTo-SecureString "Abc!2024!*1*1*1*" -AsPlainText -Force
           New-LocalUser "RDP" -Password $password -AccountNeverExpires
@@ -74,4 +87,5 @@ jobs:
           Write-Host "IP: $env:RDP_IP"
           Write-Host "User: RDP"
           Write-Host "Pass: Abc!2024!*1*1*1*"
+          Write-Host "Tunnel Port: 7777"
           while ($true) { Start-Sleep 300 }
