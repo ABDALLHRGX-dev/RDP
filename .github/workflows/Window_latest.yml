@@ -30,17 +30,16 @@ jobs:
 
           echo "RDP_IP=$ip" >> $env:GITHUB_ENV
 
-      - name: Install Cloudflared
+      - name: Download Playit
         shell: powershell
         run: |
-          Invoke-WebRequest https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe -OutFile cloudflared.exe
+          Invoke-WebRequest https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-windows-amd64.exe -OutFile playit.exe
 
-      - name: Open Tunnel Port 7777
+      - name: Start Playit Tunnel
         shell: powershell
         run: |
-          Start-Process -WindowStyle Hidden -FilePath ".\cloudflared.exe" -ArgumentList "tunnel --url tcp://localhost:7777"
-          Start-Sleep 15
-          Get-Content "$env:USERPROFILE\.cloudflared\*.log" -ErrorAction SilentlyContinue
+          Start-Process -WindowStyle Hidden -FilePath ".\playit.exe"
+          Start-Sleep 20
 
       - name: Safe Universal Clean
         shell: powershell
@@ -66,16 +65,17 @@ jobs:
           [System.GC]::Collect()
           [System.GC]::WaitForPendingFinalizers()
 
-      - name: Enable RDP
+      - name: Enable RDP & Open Port
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
           Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa" -Name "LimitBlankPasswordUse" -Value 0 -Force
           netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
-          netsh advfirewall firewall add rule name="7777" dir=in action=allow protocol=TCP localport=7777
+          netsh advfirewall firewall add rule name="UDP7777" dir=in action=allow protocol=UDP localport=7777
+          netsh advfirewall firewall add rule name="TCP7777" dir=in action=allow protocol=TCP localport=7777
           Restart-Service TermService -Force
 
-      - name: Create User
+      - name: Create RDP User
         run: |
           $password = ConvertTo-SecureString "Abc!2024!*1*1*1*" -AsPlainText -Force
           New-LocalUser "RDP" -Password $password -AccountNeverExpires
@@ -87,5 +87,5 @@ jobs:
           Write-Host "IP: $env:RDP_IP"
           Write-Host "User: RDP"
           Write-Host "Pass: Abc!2024!*1*1*1*"
-          Write-Host "Tunnel Port: 7777"
+          Write-Host "Playit Tunnel Started"
           while ($true) { Start-Sleep 300 }
