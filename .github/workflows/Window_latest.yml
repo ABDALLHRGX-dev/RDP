@@ -39,18 +39,24 @@ jobs:
       - name: Download Playit
         shell: powershell
         run: |
-          $url = "https://github.com/playit-cloud/playit-agent/releases/download/v0.15.26/playit-windows-amd64.exe"
+          $url = "https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-windows-x86_64-signed.exe"
 
           curl.exe -L --retry 5 --retry-delay 5 $url -o playit.exe
 
-          if (!(Test-Path ".\playit.exe")) {
-            throw "playit.exe missing"
+          if (!(Test-Path "playit.exe")) {
+            throw "Download failed"
+          }
+
+          $size = (Get-Item "playit.exe").Length
+
+          if ($size -lt 1000000) {
+            throw "Invalid playit.exe"
           }
 
       - name: Start Playit
         shell: powershell
         run: |
-          Start-Process -WindowStyle Hidden -FilePath ".\playit.exe"
+          Start-Process -FilePath "$PWD\playit.exe"
 
           Start-Sleep 20
 
