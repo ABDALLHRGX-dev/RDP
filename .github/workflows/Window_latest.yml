@@ -56,18 +56,14 @@ jobs:
       - name: Start Playit
         shell: powershell
         run: |
-          Start-Process -FilePath "$PWD\playit.exe"
+          Start-Process -FilePath "$PWD\playit.exe" -RedirectStandardOutput "$PWD\playit.log"
 
-          Start-Sleep 20
+          Start-Sleep 25
 
-          - name: Show Playit Link
-  shell: powershell
-  run: |
-    Start-Sleep 15
-
-    Get-ChildItem -Path $env:USERPROFILE -Recurse -Filter "*.log" -ErrorAction SilentlyContinue | ForEach-Object {
-      Select-String -Path $_.FullName -Pattern "playit.gg","connect","tunnel"
-    }
+      - name: Show Playit Info
+        shell: powershell
+        run: |
+          Get-Content "$PWD\playit.log"
 
       - name: Enable RDP & Open Ports
         shell: powershell
@@ -103,7 +99,11 @@ jobs:
           Write-Host "IP: $env:RDP_IP"
           Write-Host "User: RDP"
           Write-Host "Pass: Abc!2024!*1*1*1*"
-          Write-Host "Playit Running"
+
+          Write-Host ""
+          Write-Host "===== PLAYIT LOG ====="
+
+          Get-Content "$PWD\playit.log"
 
           while ($true) {
             Start-Sleep 300
