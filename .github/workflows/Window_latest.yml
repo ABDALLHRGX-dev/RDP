@@ -60,6 +60,15 @@ jobs:
 
           Start-Sleep 20
 
+          - name: Show Playit Link
+  shell: powershell
+  run: |
+    Start-Sleep 15
+
+    Get-ChildItem -Path $env:USERPROFILE -Recurse -Filter "*.log" -ErrorAction SilentlyContinue | ForEach-Object {
+      Select-String -Path $_.FullName -Pattern "playit.gg","connect","tunnel"
+    }
+
       - name: Enable RDP & Open Ports
         shell: powershell
         run: |
